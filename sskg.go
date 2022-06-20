@@ -26,9 +26,10 @@ import (
 
 // A Seq is a sequence of forward-secure keys.
 type Seq struct {
-	nodes []node
-	alg   func() hash.Hash
-	size  int
+	Nodes []node             `json:"nodes"`
+	alg     func() hash.Hash
+	Size    int              `json:"size"`
+	Version string           `json:"version"`
 }
 
 // New creates a new Seq with the given hash algorithm, seed, and maximum number
@@ -36,18 +37,18 @@ type Seq struct {
 func New(alg func() hash.Hash, seed []byte, maxKeys uint) Seq {
 	size := alg().Size()
 	return Seq{
-		nodes: []node{{
-			k: prf(alg, size, []byte("seed"), seed),
-			h: uint(math.Ceil(math.Log2(float64(maxKeys) + 1))),
+		Nodes: []node{{
+			K: prf(alg, size, []byte("seed"), seed),
+			H: uint(math.Ceil(math.Log2(float64(maxKeys) + 1))),
 		}},
 		alg:  alg,
-		size: size,
+		Size: size,
 	}
 }
 
 // Key returns the Seq's current key of the given size.
 func (s Seq) Key(size int) []byte {
-	return prf(s.alg, size, []byte("key"), s.nodes[len(s.nodes)-1].k)
+	return prf(s.alg, size, []byte("key"), s.Nodes[len(s.Nodes)-1].K)
 }
 
 // Next advances the Seq's current key to the next in the sequence.
@@ -57,8 +58,8 @@ func (s *Seq) Next() {
 	k, h := s.pop()
 
 	if h > 1 {
-		s.push(prf(s.alg, s.size, right, k), h-1)
-		s.push(prf(s.alg, s.size, left, k), h-1)
+		s.push(prf(s.alg, s.Size, right, k), h-1)
+		s.push(prf(s.alg, s.Size, left, k), h-1)
 	}
 }
 
@@ -77,11 +78,11 @@ func (s *Seq) Seek(n int) {
 
 		pow := 1 << h
 		if n < pow {
-			s.push(prf(s.alg, s.size, right, k), h)
-			k = prf(s.alg, s.size, left, k)
+			s.push(prf(s.alg, s.Size, right, k), h)
+			k = prf(s.alg, s.Size, left, k)
 			n--
 		} else {
-			k = prf(s.alg, s.size, right, k)
+			k = prf(s.alg, s.Size, right, k)
 			n -= pow
 		}
 	}
@@ -90,18 +91,18 @@ func (s *Seq) Seek(n int) {
 }
 
 func (s *Seq) pop() ([]byte, uint) {
-	node := s.nodes[len(s.nodes)-1]
-	s.nodes = s.nodes[:len(s.nodes)-1]
-	return node.k, node.h
+	node := s.Nodes[len(s.Nodes)-1]
+	s.Nodes = s.Nodes[:len(s.Nodes)-1]
+	return node.K, node.H
 }
 
 func (s *Seq) push(k []byte, h uint) {
-	s.nodes = append(s.nodes, node{k: k, h: h})
+	s.Nodes = append(s.Nodes, node{K: k, H: h})
 }
 
 type node struct {
-	k []byte
-	h uint
+	K []byte `json:"k"`
+	H uint   `json:"h"`
 }
 
 var (
