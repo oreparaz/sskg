@@ -3,7 +3,10 @@ package sskg_test
 import (
 	"bytes"
 	"crypto/sha256"
+	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/oreparaz/sskg"
 )
@@ -40,6 +43,50 @@ func TestSeekTooFar(t *testing.T) {
 	seq.Seek(1 << 33)
 
 	t.Fatal("expected to exhaust the keyspace")
+}
+
+func assertEqualSeq(t *testing.T, s1 sskg.Seq, s2 sskg.Seq) {
+	v1 := s1.Key(32)
+	v2 := s2.Key(32)
+	assert.Equal(t, v1, v2)
+}
+
+func TestSuperseek(t *testing.T) {
+	seq := sskg.New(sha256.New, make([]byte, 32), 1<<32)
+	seq.Seek(10000)
+
+	seq2 := sskg.New(sha256.New, make([]byte, 32), 1<<32)
+	seq2.Superseek(5000)
+	seq2.Superseek(5000)
+
+	seq3 := sskg.New(sha256.New, make([]byte, 32), 1<<32)
+	for i:=0; i<10; i++ {
+		seq3.Superseek(1000)
+	}
+
+	assertEqualSeq(t, seq, seq2)
+	assertEqualSeq(t, seq, seq3)
+}
+
+func helperTestSuperseekRandom(t *testing.T) {
+	seq := sskg.New(sha256.New, make([]byte, 32), 1<<32)
+	seq2 := sskg.New(sha256.New, make([]byte, 32), 1<<32)
+
+	count := 0
+	for i:=0; i<rand.Intn(10); i++ {
+		n := rand.Intn(1000)
+		count += n
+		seq2.Superseek(n)
+	}
+	seq.Seek(count)
+	assertEqualSeq(t, seq, seq2)
+}
+
+func TestSuperseekRandom(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+	for i:=0; i<10000; i++ {
+		helperTestSuperseekRandom(t)
+	}
 }
 
 func BenchmarkNext(b *testing.B) {

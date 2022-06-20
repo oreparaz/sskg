@@ -66,8 +66,44 @@ func (s *Seq) Next() {
 // Seek moves the Seq to the N-th key without having to calculate all of the
 // intermediary keys. It is equivalent to, but faster than, N invocations of
 // Next().
+// WARNING: Seek does not work when the state is already advanced. If you
+// want to keep advancing a state that has already been advanced, use
+// Superseek. You probably just want to use Superseek.
+// This method will probably be superseded by Superseek in a future version.
 func (s *Seq) Seek(n int) {
 	k, h := s.pop()
+
+	for n > 0 {
+		h--
+
+		if h <= 0 {
+			panic("keyspace exhausted")
+		}
+
+		pow := 1 << h
+		if n < pow {
+			s.push(prf(s.alg, s.Size, right, k), h)
+			k = prf(s.alg, s.Size, left, k)
+			n--
+		} else {
+			k = prf(s.alg, s.Size, right, k)
+			n -= pow
+		}
+	}
+
+	s.push(k, h)
+}
+
+// Superseek is equivalent to Seek, but works even when the state is already advanced.
+func (s *Seq) Superseek(n int) {
+	k, h := s.pop()
+
+	delta := n
+	for delta >= (1<<h)-1 {
+		delta -= (1<<h)-1
+		k, h = s.pop()
+	}
+	n = delta
 
 	for n > 0 {
 		h--
