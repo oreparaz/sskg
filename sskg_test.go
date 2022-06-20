@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/codahale/sskg"
+	"github.com/oreparaz/sskg"
 )
 
 func TestNext(t *testing.T) {
